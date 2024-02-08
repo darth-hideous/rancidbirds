@@ -10,6 +10,7 @@ namespace rancidBirds
 {
     public class Game1 : Game
     {
+        RenderTarget2D renderTarget;
         private SpriteBatch _spriteBatch;
         private readonly GraphicsDeviceManager _graphics;
         Vector3 camTarget;
@@ -37,10 +38,19 @@ namespace rancidBirds
             _graphics.PreferredBackBufferHeight = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Height;
             _graphics.IsFullScreen = true;
             IsFixedTimeStep = false;
+            _graphics.SynchronizeWithVerticalRetrace = true;
         }
         protected override void Initialize()
         {
             base.Initialize();
+
+            renderTarget = new RenderTarget2D(
+                GraphicsDevice,
+                400,
+                300,
+                false,
+                GraphicsDevice.PresentationParameters.BackBufferFormat,
+                DepthFormat.Depth24);
 
             camTarget = new Vector3(0f, 0f, 0f);
             camPosition = new Vector3(0f, 0f, -20f);
@@ -77,8 +87,8 @@ namespace rancidBirds
             List<float> speedZTotals = new();
             List<float> directionTotals = new();
             headBob += deltaTime;
-            pointInDirection += (mouse.X - _graphics.GraphicsDevice.Viewport.Width / 2) * -0.2f;
-            Mouse.SetPosition(_graphics.GraphicsDevice.Viewport.Width / 2, 0);
+            pointInDirection += (mouse.X - GraphicsDevice.Viewport.Width / 2) * -0.2f;
+            Mouse.SetPosition(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2);
             if (mouse.LeftButton == ButtonState.Pressed && !mousePressed)
             {
                 mousePressed = true;
@@ -138,19 +148,19 @@ namespace rancidBirds
                     direction = pointInDirection + 180;
             }
             float speed = (Math.Abs(speedX) + Math.Abs(speedZ)) / 1.1f;
+            bobIntensity /= 1.1f * (1 + deltaTime);
             if (speed != 0 && moving)
             {
                 float camX = (float)(Math.Sin(MathHelper.ToRadians(direction)) * speed) * deltaTime;
                 float camZ = (float)(Math.Cos(MathHelper.ToRadians(direction)) * speed) * deltaTime;
                 camPosition.X += camX;
                 camPosition.Z += camZ;
-                float camXZ = deltaTime * (float)Math.Sqrt(camX * camX + camZ * camZ);
                 headBob += deltaTime * 9;
-                bobIntensity = 2;
-            }
-            else
-            {
-                bobIntensity = 0;
+                if (bobIntensity < 0.1f)
+                    bobIntensity = 0.1f;
+                bobIntensity *= 1.2f * (1 + deltaTime);
+                if (bobIntensity > 2)
+                    bobIntensity = 2;
             }
             camPosition.Y = (float)((Math.Sin(headBob - 1.57) + 1) * (0.1 + bobIntensity * 0.175));
             camTarget.X = (float)(Math.Sin(MathHelper.ToRadians(pointInDirection)) * 20 + camPosition.X);
@@ -160,16 +170,38 @@ namespace rancidBirds
         }
         protected override void Draw(GameTime gameTime)
         {
-            GraphicsDevice.Clear(Color.White);
+            GraphicsDevice.SetRenderTarget(renderTarget);
+
+            GraphicsDevice.DepthStencilState = new DepthStencilState() { DepthBufferEnable = true };
+
+            //
+            // <draw scene>
+            //
 
             GraphicsDevice.DepthStencilState = DepthStencilState.Default;
             model.Draw(worldMatrix, viewMatrix, projectionMatrix);
             model.Draw(Matrix.CreateWorld(new Vector3(0f, 0.5f, 5f), Vector3.Forward, Vector3.Up), viewMatrix, projectionMatrix);
             model.Draw(Matrix.CreateWorld(new Vector3(5f, 1f, 2.5f), Vector3.Forward, Vector3.Up), viewMatrix, projectionMatrix);
-            _spriteBatch.Begin();
-            Vector2 position = new Vector2(Window.ClientBounds.Width / 2, Window.ClientBounds.Height / 2);
-            _spriteBatch.DrawString(arial, delta.ToString(), position, Color.Black, 0, new Vector2(0, 0), 1.0f, SpriteEffects.None, 0.5f);
+
+            //
+            // </draw scene>
+            //
+
+            GraphicsDevice.SetRenderTarget(null);
+            GraphicsDevice.Clear(Color.White);
+
+            GraphicsDevice.Clear(Color.White);
+            _spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend,
+                        SamplerState.PointClamp, DepthStencilState.Default,
+                        RasterizerState.CullCounterClockwise);
+
+            _spriteBatch.Draw(renderTarget, new Rectangle(0, 0, GraphicsDevice.PresentationParameters.BackBufferWidth,
+                        GraphicsDevice.PresentationParameters.BackBufferHeight), Color.White);
+
             _spriteBatch.End();
+
+            base.Draw(gameTime);
+
             base.Draw(gameTime);
         }
     }
