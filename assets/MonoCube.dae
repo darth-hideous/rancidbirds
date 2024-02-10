@@ -12,7 +12,7 @@
   </asset>
   <library_images>
     <image id="MonoCubeTexture" name="MonoCubeTexture">
-      <init_from>MonoCubeTexture.png</init_from>
+      <init_from>MonoCube_Texture.png</init_from>
     </image>
   </library_images>
   <library_effects>

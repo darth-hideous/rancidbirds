@@ -20,7 +20,6 @@ namespace rancidBirds
         MouseState mouse;
         KeyboardState keyboard;
         Model model;
-        // Model floorPlane;
         static private readonly float collisionMulti = 1.2f;
         float pointInDirection = 0;
         float headBob = 0;
@@ -91,7 +90,6 @@ namespace rancidBirds
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             model = Content.Load<Model>("MonoCube");
-            // floorPlane = Content.Load<Model>("floor_temp");
         }
         protected override void Update(GameTime gameTime)
         {
