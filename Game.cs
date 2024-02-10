@@ -3,37 +3,44 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.Design;
-using static System.Net.Mime.MediaTypeNames;
+using System.Linq;
 
 namespace rancidBirds
 {
-    public class Game1 : Game
+    public class Game : Microsoft.Xna.Framework.Game
     {
-        BasicEffect effect;
+        // BasicEffect effect;
         RenderTarget2D renderTarget;
-        private SpriteBatch _spriteBatch;
-        private readonly GraphicsDeviceManager _graphics;
+        SpriteBatch _spriteBatch;
+        readonly GraphicsDeviceManager _graphics;
         Vector3 camTarget;
         Vector3 camPosition;
-        Vector3 hands_Relative;
         Matrix projectionMatrix;
         Matrix viewMatrix;
         Matrix worldMatrix;
         MouseState mouse;
         KeyboardState keyboard;
-        SpriteFont arial;
         Model model;
+        // Model floorPlane;
         float pointInDirection = 0;
         float headBob = 0;
         float bobIntensity = 0;
         float fov = 0;
-        float delta = 0;
         bool mousePressed = false;
-        public Game1()
+
+
+        readonly Vector3[] modelPositions = {
+            new(2, 0, 0), 
+            new(4, 0, 0), 
+            new(6, 0, 0),
+            new(8, 0, 0),
+            new(10, 0, 0)
+        };
+
+        public Game()
         {
             _graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
+            Content.RootDirectory = "assets";
             Window.AllowUserResizing = true;
             IsMouseVisible = false;
             _graphics.PreferredBackBufferWidth = GraphicsAdapter.DefaultAdapter.CurrentDisplayMode.Width;
@@ -56,11 +63,7 @@ namespace rancidBirds
                 DepthFormat.Depth24);
 
             camTarget = new Vector3(0f, 0f, 0f);
-            hands_Relative = new Vector3(0f, 0f, -15f);
             camPosition = new Vector3(0f, 0f, -20f);
-
-            effect = new BasicEffect(GraphicsDevice);
-            effect.Alpha = 1f;
 
             projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
                 // FOV in radians (degrees being converted to radians)
@@ -78,18 +81,14 @@ namespace rancidBirds
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             model = Content.Load<Model>("MonoCube");
-            arial = Content.Load<SpriteFont>("arial");
+            // floorPlane = Content.Load<Model>("floor_temp");
         }
         protected override void Update(GameTime gameTime)
         {
             keyboard = Keyboard.GetState();
             mouse = Mouse.GetState();
-            double Ease(double easingVal)
-            {
-                return (Math.Sin((10 * easingVal / (Math.PI * 1.0133)) + Math.PI * 3 / 2) + 1) / 2;
-            }
+            double Ease(double easingVal) => (Math.Sin((10 * easingVal / (Math.PI * 1.0133)) + Math.PI * 3 / 2) + 1) / 2;
             float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            delta = 1 / deltaTime;
             float direction = 0;
             bool moving = false;
             headBob += deltaTime;
@@ -109,7 +108,8 @@ namespace rancidBirds
             if (fov < 0)
                 fov = 0;
             if (Math.Round(fov, 0) != 0)
-                projectionMatrix = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(fov + 90), GraphicsDevice.DisplayMode.AspectRatio, 0.001f, 1000f);
+                projectionMatrix = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(fov + 90), GraphicsDevice.DisplayMode.AspectRatio,
+                    0.001f, 1000f);
             void KeyboardMovement()
             {
                 List<float> directionTotals = new();
@@ -158,15 +158,22 @@ namespace rancidBirds
                 float camZ = (float)(Math.Cos(MathHelper.ToRadians(direction + pointInDirection)) * speed * Ease(bobIntensity)) * deltaTime;
                 camPosition.X += camX;
                 camPosition.Z += camZ;
+                foreach (Vector3 vector3 in modelPositions)
+                {
+                    if (Math.Round(camPosition.X / 2) == vector3.X / 2 && Math.Round(camPosition.Z / 2) == vector3.Z / 2)
+                    {
+                        camPosition.X -= camX;
+                        camPosition.Z -= camZ;
+                        bobIntensity = 0;
+                    }
+                }
                 headBob += deltaTime * 9;
             }
             camPosition.Y = (float)((Math.Sin(headBob - 1.57) + 1) * (0.1 + 
                 Ease(bobIntensity)
                 * 0.175));
             camTarget.X = (float)(Math.Sin(MathHelper.ToRadians(pointInDirection)) * 20 + camPosition.X);
-            camTarget.Z = (float)(Math.Cos(MathHelper.ToRadians(pointInDirection)) * 20 + camPosition.Z);
-            hands_Relative.X = (float)(Math.Sin(MathHelper.ToRadians(pointInDirection)) * 5 + camPosition.X);
-            hands_Relative.Z = (float)(Math.Cos(MathHelper.ToRadians(pointInDirection)) * 5 + camPosition.Z);
+            camTarget.Z = (float)(Math.Cos(MathHelper.ToRadians(pointInDirection)) * 20 +     camPosition.Z);
             viewMatrix = Matrix.CreateLookAt(camPosition, camTarget, Vector3.Up);
             base.Update(gameTime);
         }
@@ -184,7 +191,7 @@ namespace rancidBirds
 
             foreach (ModelMesh mesh in model.Meshes)
             {
-                foreach (BasicEffect effect in mesh.Effects)
+                foreach (BasicEffect effect in mesh.Effects.Cast<BasicEffect>())
                 {
                     effect.LightingEnabled = true;
                     effect.DiffuseColor = new Vector3(1, 0.8f, 0.9f);
@@ -203,13 +210,12 @@ namespace rancidBirds
             }
 
             // model.Draw(worldMatrix, viewMatrix, projectionMatrix);
-            model.Draw(Matrix.CreateWorld(new Vector3(0f, 0.5f, 5f), Vector3.Forward, Vector3.Up), viewMatrix, projectionMatrix);
-            model.Draw(Matrix.CreateWorld(new Vector3(5f, 1f, 2.5f), Vector3.Forward, Vector3.Up), viewMatrix, projectionMatrix);
-            //model.Draw(Matrix.CreateWorld(hands_Relative, Vector3.Forward, Vector3.Up), Matrix.CreateLookAt(camPosition, new Vector3(
-            //    camTarget.X, 
-            //    0,
-            //    camTarget.Z
-            //    ), Vector3.Up), projectionMatrix);
+            foreach (Vector3 vector3 in modelPositions)
+            {
+                model.Draw(Matrix.CreateWorld(vector3, Vector3.Forward, Vector3.Up), viewMatrix, projectionMatrix);
+            }
+            // floorPlane.Draw(Matrix.CreateWorld(new Vector3(camPosition.X, -1f, camPosition.Z), Vector3.Forward, Vector3.Up),
+            //     viewMatrix, projectionMatrix);
 
             //
             // </draw scene>
