@@ -22,11 +22,13 @@ namespace rancidBirds
         KeyboardState keyboard;
         Model model;
         // Model floorPlane;
+        static private readonly float collisionMulti = 1.2f;
         float pointInDirection = 0;
         float headBob = 0;
         float bobIntensity = 0;
         float fov = 0;
         bool mousePressed = false;
+        float sliding = 0;
 
 
         readonly Vector3[] modelPositions = {
@@ -148,23 +150,44 @@ namespace rancidBirds
             bobIntensity -= 4 * deltaTime;
             if (bobIntensity < 0)
                 bobIntensity = 0;
-            double speed = (((((direction%360)-180)*((direction%360)-180)+138600)/1800)+9*Math.Cos(direction/9119/(Math.PI/500)))/8;
-            if (speed!= 0 && moving)
+            double speed = (((((direction % 360) - 180) * ((direction % 360) - 180) + 138600) / 1800) + 9 * Math.Cos(direction / 9119 / (Math.PI / 500))) / 8;
+            if ((speed!= 0 && moving) || Math.Round(bobIntensity * 2) != 0)
             {
-                bobIntensity += 8 * deltaTime;
-                if (bobIntensity > 1)
-                    bobIntensity = 1;
+                if (moving)
+                {
+                    sliding = direction;
+                    bobIntensity += 8 * deltaTime;
+                    if (bobIntensity > 1)
+                        bobIntensity = 1;
+                }
+                else
+                {
+                    direction = sliding;
+                    speed = (((((direction % 360) - 180) * ((direction % 360) - 180) + 138600) / 1800) + 9 * Math.Cos(direction / 9119 / (Math.PI / 500))) / 8;
+                }
                 float camX = (float)(Math.Sin(MathHelper.ToRadians(direction + pointInDirection)) * speed * Ease(bobIntensity)) * deltaTime;
                 float camZ = (float)(Math.Cos(MathHelper.ToRadians(direction + pointInDirection)) * speed * Ease(bobIntensity)) * deltaTime;
                 camPosition.X += camX;
                 camPosition.Z += camZ;
                 foreach (Vector3 vector3 in modelPositions)
                 {
-                    if (Math.Round(camPosition.X / 2) == vector3.X / 2 && Math.Round(camPosition.Z / 2) == vector3.Z / 2)
+                    if (camPosition.X <= vector3.X + collisionMulti &&
+                        camPosition.Z <= vector3.Z + collisionMulti &&
+                        camPosition.X >= vector3.X - collisionMulti &&
+                        camPosition.Z >= vector3.Z - collisionMulti)
                     {
-                        camPosition.X -= camX;
-                        camPosition.Z -= camZ;
-                        bobIntensity = 0;
+                        for (int i = 0; i < 50; i++)
+                        {
+                            camPosition.X -= camX / 50;
+                            if (!(camPosition.X <= vector3.X + collisionMulti && camPosition.X >= vector3.X - collisionMulti))
+                                break;
+                        }
+                        for (int i = 0; i < 50; i++)
+                        {
+                            camPosition.Z -= camZ / 50;
+                            if (!(camPosition.Z <= vector3.Z + collisionMulti && camPosition.Z >= vector3.Z - collisionMulti))
+                                break;
+                        }
                     }
                 }
                 headBob += deltaTime * 9;
@@ -201,7 +224,7 @@ namespace rancidBirds
                     effect.FogColor = Color.Black.ToVector3();
                     effect.FogStart = 5f;
                     effect.FogEnd = 20f;
-
+            
                     effect.View = viewMatrix;
                     effect.World = worldMatrix;
                     effect.Projection = projectionMatrix;
