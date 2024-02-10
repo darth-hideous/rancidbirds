@@ -17,7 +17,6 @@ namespace rancidBirds
         Vector3 camPosition;
         Matrix projectionMatrix;
         Matrix viewMatrix;
-        Matrix worldMatrix;
         MouseState mouse;
         KeyboardState keyboard;
         Model model;
@@ -36,7 +35,16 @@ namespace rancidBirds
             new(4, 0, 0), 
             new(6, 0, 0),
             new(8, 0, 0),
-            new(10, 0, 0)
+            new(10, 0, 0),
+            new(2, 0, 2),
+            new(4, 0, 2),
+            new(6, 0, 2),
+            new(8, 0, 2),
+            new(2, 0, 4),
+            new(4, 0, 4),
+            new(6, 0, 4),
+            new(8, 0, 4),
+            new(10, 0, 4),
         };
 
         public Game()
@@ -54,6 +62,7 @@ namespace rancidBirds
         protected override void Initialize()
         {
             base.Initialize();
+            Mouse.SetPosition(GraphicsDevice.Viewport.Width / 2, GraphicsDevice.Viewport.Height / 2);
 
 
             renderTarget = new RenderTarget2D(
@@ -77,7 +86,6 @@ namespace rancidBirds
                 20f
                 );
             viewMatrix = Matrix.CreateLookAt(camPosition, camTarget, Vector3.Up);
-            worldMatrix = Matrix.CreateWorld(camTarget, Vector3.Forward, Vector3.Up);
         }
         protected override void LoadContent()
         {
@@ -169,24 +177,30 @@ namespace rancidBirds
                 float camZ = (float)(Math.Cos(MathHelper.ToRadians(direction + pointInDirection)) * speed * Ease(bobIntensity)) * deltaTime;
                 camPosition.X += camX;
                 camPosition.Z += camZ;
-                foreach (Vector3 vector3 in modelPositions)
+                bool checkForCollision()
                 {
-                    if (camPosition.X <= vector3.X + collisionMulti &&
+                    foreach (Vector3 vector3 in modelPositions)
+                    {
+                        if (camPosition.X <= vector3.X + collisionMulti &&
                         camPosition.Z <= vector3.Z + collisionMulti &&
                         camPosition.X >= vector3.X - collisionMulti &&
                         camPosition.Z >= vector3.Z - collisionMulti)
-                    {
-                        for (int i = 0; i < 50; i++)
                         {
-                            camPosition.X -= camX / 50;
-                            if (!(camPosition.X <= vector3.X + collisionMulti && camPosition.X >= vector3.X - collisionMulti))
-                                break;
+                            return true;
                         }
-                        for (int i = 0; i < 50; i++)
+                    }
+                    return false;
+                }
+                if (checkForCollision())
+                {
+                    camPosition.X -= camX;
+                    if (checkForCollision())
+                    {
+                        camPosition.X += camX;
+                        camPosition.Z -= camZ;
+                        if (checkForCollision())
                         {
-                            camPosition.Z -= camZ / 50;
-                            if (!(camPosition.Z <= vector3.Z + collisionMulti && camPosition.Z >= vector3.Z - collisionMulti))
-                                break;
+                            camPosition.X -= camX;
                         }
                     }
                 }
@@ -226,7 +240,7 @@ namespace rancidBirds
                     effect.FogEnd = 20f;
             
                     effect.View = viewMatrix;
-                    effect.World = worldMatrix;
+                    effect.World = Matrix.CreateWorld(new Vector3(camPosition.X, 0, camPosition.Z), Vector3.Forward, Vector3.Up);
                     effect.Projection = projectionMatrix;
                 }
                 mesh.Draw();
