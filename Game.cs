@@ -15,11 +15,15 @@ namespace rancidBirds
         readonly GraphicsDeviceManager _graphics;
         Vector3 camTarget;
         Vector3 camPosition;
+        Vector3 handPosition;
         Matrix projectionMatrix;
         Matrix viewMatrix;
         MouseState mouse;
         KeyboardState keyboard;
+        readonly Matrix[] handMatrixArray = new Matrix[3];
         Model model;
+        Model hands;
+
         static private readonly float collisionMulti = 1.2f;
         float pointInDirection = 0;
         float headBob = 0;
@@ -74,13 +78,14 @@ namespace rancidBirds
 
             camTarget = new Vector3(0f, 0f, 0f);
             camPosition = new Vector3(0f, 0f, -20f);
+            handPosition = new Vector3(0, 0, 0);
 
             projectionMatrix = Matrix.CreatePerspectiveFieldOfView(
                 // FOV in radians (degrees being converted to radians)
                 MathHelper.ToRadians(90f), GraphicsDevice.DisplayMode.AspectRatio,
                 // Render limit for objects that are too close
                 // ex. 0 = all objects are rendered, 1 = objects that are 0 away from the camera will not be rendered
-                0.001f,
+                0.01f,
                 // Render distance
                 20f
                 );
@@ -90,6 +95,7 @@ namespace rancidBirds
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
             model = Content.Load<Model>("MonoCube");
+            hands = Content.Load<Model>("MonoCube");
         }
         protected override void Update(GameTime gameTime)
         {
@@ -118,6 +124,7 @@ namespace rancidBirds
             if (Math.Round(fov, 0) != 0)
                 projectionMatrix = Matrix.CreatePerspectiveFieldOfView(MathHelper.ToRadians(fov + 90), GraphicsDevice.DisplayMode.AspectRatio,
                     0.001f, 1000f);
+
             void KeyboardMovement()
             {
                 List<float> directionTotals = new();
@@ -150,6 +157,7 @@ namespace rancidBirds
                 if (keyboard.IsKeyDown(Keys.A) && keyboard.IsKeyDown(Keys.D))
                     moving = false;
             }
+
             KeyboardMovement();
             if (headBob > 628.31)
                 headBob -= 628.31f;
@@ -157,6 +165,8 @@ namespace rancidBirds
             if (bobIntensity < 0)
                 bobIntensity = 0;
             double speed = (((((direction % 360) - 180) * ((direction % 360) - 180) + 138600) / 1800) + 9 * Math.Cos(direction / 9119 / (Math.PI / 500))) / 8;
+
+
             if ((speed!= 0 && moving) || Math.Round(bobIntensity * 2) != 0)
             {
                 if (moving)
@@ -207,9 +217,22 @@ namespace rancidBirds
             camPosition.Y = (float)((Math.Sin(headBob - 1.57) + 1) * (0.1 + 
                 Ease(bobIntensity)
                 * 0.175));
+            handPosition.Y = (float)((Math.Sin(headBob - 1.57) + 1) * (0.1 +
+                Ease(bobIntensity)
+                * 0.175));
             camTarget.X = (float)(Math.Sin(MathHelper.ToRadians(pointInDirection)) * 20 + camPosition.X);
-            camTarget.Z = (float)(Math.Cos(MathHelper.ToRadians(pointInDirection)) * 20 +     camPosition.Z);
+            camTarget.Z = (float)(Math.Cos(MathHelper.ToRadians(pointInDirection)) * 20 + camPosition.Z);
+            handPosition.X = (float)(Math.Sin(MathHelper.ToRadians(pointInDirection)) * 4f + camPosition.X);
+            handPosition.Z = (float)(Math.Cos(MathHelper.ToRadians(pointInDirection)) * 4f + camPosition.Z);
             viewMatrix = Matrix.CreateLookAt(camPosition, camTarget, Vector3.Up);
+
+
+            handMatrixArray[0] = Matrix.CreateScale(1f, 1f, 1f) * Matrix.CreateRotationY(MathHelper.ToRadians(pointInDirection))
+                * Matrix.CreateTranslation(new Vector3(handPosition.X, handPosition.Y - 0, handPosition.Z));
+            handMatrixArray[1] = Matrix.CreateLookAt(camPosition, new Vector3(camTarget.X, camPosition.Y, camTarget.Z), Vector3.Up);
+            handMatrixArray[2] = projectionMatrix;
+
+
             base.Update(gameTime);
         }
         protected override void Draw(GameTime gameTime)
@@ -249,12 +272,21 @@ namespace rancidBirds
             {
                 model.Draw(Matrix.CreateWorld(vector3, Vector3.Forward, Vector3.Up), viewMatrix, projectionMatrix);
             }
-            // floorPlane.Draw(Matrix.CreateWorld(new Vector3(camPosition.X, -1f, camPosition.Z), Vector3.Forward, Vector3.Up),
-            //     viewMatrix, projectionMatrix);
 
+            //
+            // <draw hands>
+            // 
+
+            GraphicsDevice.DepthStencilState = DepthStencilState.None;
+            // hands, weapons, etc. positioned with these values :
+            hands.Draw(handMatrixArray[0], handMatrixArray[1], handMatrixArray[2]);
+
+            //
+            // </draw hands>
             //
             // </draw scene>
             //
+
 
             GraphicsDevice.SetRenderTarget(null);
             GraphicsDevice.Clear(Color.White);
